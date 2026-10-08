@@ -1,54 +1,37 @@
 package cl.duoc.wepay_ms_notificaciones.config;
 
-import org.springframework.amqp.core.*;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
-import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class RabbitMQConfig {
 
-    // 1. Declaración de Exchanges
-    @Bean
-    public DirectExchange cmdDirectExchange() {
-        return new DirectExchange("cmd.direct");
-    }
-
-    @Bean
-    public DirectExchange dlqExchange() {
-        return new DirectExchange("cmd.dead.dlx");
-    }
-
-    // 2. Declaración de la Cola Principal para Emails con argumentos para DLQ
+    /**
+     * Cola "q.cmd.email" para notificaciones de email.
+     * Idempotente: si no existe la crea; si existe, la reutiliza.
+     * durable=true → persiste si RabbitMQ se reinicia.
+     */
     @Bean
     public Queue emailQueue() {
-        return QueueBuilder.durable("q.cmd.email")
-                .withArgument("x-dead-letter-exchange", "cmd.dead.dlx")
-                .withArgument("x-dead-letter-routing-key", "email.send.dlq")
-                .build();
-    }
-
-    // 3. Declaración de la Dead Letter Queue (DLQ) para Emails
-    @Bean
-    public Queue emailDlq() {
-        return QueueBuilder.durable("q.cmd.email.dlq").build();
-    }
-
-    // 4. Bindings (Unir Colas con Exchanges)
-    @Bean
-    public Binding emailBinding(Queue emailQueue, DirectExchange cmdDirectExchange) {
-        return BindingBuilder.bind(emailQueue).to(cmdDirectExchange).with("email.send");
+        return new Queue("q.cmd.email", true);
     }
 
     @Bean
-    public Binding emailDlqBinding(Queue emailDlq, DirectExchange dlqExchange) {
-        return BindingBuilder.bind(emailDlq).to(dlqExchange).with("email.send.dlq");
+    public Jackson2JsonMessageConverter messageConverter() {
+        return new Jackson2JsonMessageConverter();
     }
 
-// 5. Conversor JSON (Forma actualizada)
     @Bean
-    public MessageConverter jsonMessageConverter(com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
-        return new Jackson2JsonMessageConverter(objectMapper);
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory,
+            Jackson2JsonMessageConverter messageConverter) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(messageConverter);
+        return factory;
     }
 }
