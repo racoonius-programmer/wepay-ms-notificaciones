@@ -13,6 +13,22 @@ spring:
         initial-interval: 1000
         max-interval: 30000
         multiplier: 2.0
+    listener:
+      simple:
+        # Entre 2 y 5 consumidores por cola, cada uno con hasta 10 mensajes sin confirmar
+        concurrency: 2
+        max-concurrency: 5
+        prefetch: 10
+        # Al agotar los reintentos el mensaje NO vuelve a la cola: se va a la DLQ
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000ms
+          multiplier: 2
+
+app:
+  falla-facturacion: ${APP_FALLA_FACTURACION:false}
 
 server:
   port: 8080
